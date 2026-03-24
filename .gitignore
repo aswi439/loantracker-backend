@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# TypeScript compiled output
+dist/
+
+# Environment variables (never commit these — add them in Railway dashboard)
+.env
+.env.*
+
+# Firebase private key (never commit this — use FIREBASE_ADMIN_KEY_JSON env var on Railway)
+firebase-admin-key.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
