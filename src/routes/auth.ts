@@ -1,6 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
+import Otp from '../models/Otp';
 
 const router = express.Router();
 
@@ -10,8 +11,14 @@ router.post('/send-otp', async (req, res) => {
   if (!phone) return res.status(400).json({ message: 'Phone required' });
   try {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    (global as any).otpStore = (global as any).otpStore || {};
-    (global as any).otpStore[phone] = { otp, expires: Date.now() + 5 * 60 * 1000 };
+
+    // Upsert OTP into MongoDB (overwrites any existing OTP for this phone)
+    await Otp.findOneAndUpdate(
+      { phone },
+      { phone, otp, createdAt: new Date() },
+      { upsert: true, new: true }
+    );
+
     console.log(`OTP for ${phone}: ${otp}`);
     return res.json({ message: 'OTP sent', testOtp: otp });
   } catch (err: any) {
@@ -24,13 +31,13 @@ router.post('/verify-otp', async (req, res) => {
   const { phone, otp } = req.body;
   if (!phone || !otp) return res.status(400).json({ message: 'Phone and OTP required' });
   try {
-    const store = (global as any).otpStore || {};
-    const record = store[phone];
+    const record = await Otp.findOne({ phone });
     if (!record) return res.status(400).json({ message: 'OTP not found. Request a new one.' });
-    if (Date.now() > record.expires) return res.status(400).json({ message: 'OTP expired. Request a new one.' });
     if (record.otp !== otp) return res.status(400).json({ message: 'Incorrect OTP' });
 
-    delete store[phone];
+    // Delete OTP after successful verify
+    await Otp.deleteOne({ phone });
+
     const user = await User.findOne({ phone });
     if (user) {
       const token = jwt.sign(
